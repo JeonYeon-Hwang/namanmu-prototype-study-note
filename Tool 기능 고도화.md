@@ -108,10 +108,6 @@ graph LR
     style C fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
     style F fill:#fff3e0,stroke:#f57c00,stroke-width:2px
 ```
-현재 상황: 
-
-
-
 
 
 
