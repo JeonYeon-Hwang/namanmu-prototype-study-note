@@ -100,7 +100,7 @@ GPU 1순위 선택:
 <br>
 
 **기존 AI와 나의 튜닝 방향 요약**  
-|구분|기존 AI|나의 방향|
+|구분|나의 방향|기존 방향|
 |:---|:---|:---|
 |LLM 역할|의도 분류/조건 구조화|맥락/선호도 추출|
 |추천 방식|사용자별 선호 백터 내적|규칙/가격 중심 후보 생성|
@@ -108,4 +108,60 @@ GPU 1순위 선택:
 |조합 생성|백터 내적 + 백트래킹|티어/예산/제약별 다양한 경로|
 |검증|조합 과정에서 검증도구 호출|생성 후 검증 및 휴리스틱 수정|
 
+<br>  
+
+**세션 정책 수립**  
+대화의 상태와 책임을 프론트 → 서버로 옮기기  
+현재: 프론트가 세션ID + 문맥을 보관.. 서버로 매번 전송  
+개선: 프론트는 메시지만 전송.. 서버가 세션 + 문맥 보관.. 버튼으로 "새 세션"이동 可  
+.. 계정 하나 당 = 하나의 session을 가지도록 정책 수립 필요!  
+<br>
+
+**현재 Main과 병합된 Agent 기능 아키텍처 살펴보기**  
+```mermaid
+flowchart TD
+    U["사용자 메시지"] --> L1["1계층<br/>BuildChatIntentRouter<br/>룰 기반 intent 판정"]
+
+    L1 --> NAT["BUILD_RECOMMEND<br/>ASK_CLARIFICATION<br/>UNSUPPORTED"]
+    L1 --> SIM["SIMULATE_REPLACEMENT"]
+    L1 --> SUPPORT["SUPPORT_GUIDANCE"]
+    L1 --> UI["OPEN_DRAFT_HISTORY<br/>LOCATE_BOARD_PART"]
+    L1 --> SCORE["EXPLAIN_BUILD_SCORE"]
+
+    NAT --> FAST{"서버 fast path로<br/>확정 가능한가?"}
+    FAST -->|예| SERVER["서버 조회·계산·응답 생성"]
+    FAST -->|아니요, QuoteAgent 활성| QA["수정한 QuoteAgent<br/>세션 문맥 + 현재 발화 해석<br/>action + 조건 구조화"]
+    FAST -->|아니요, QuoteAgent 비활성| LEGACY["기존 공통 LLM<br/>intent + 조건 해석"]
+    QA --> BUILD["서버 추천 실행<br/>부품 생성 · Tool 검증 · 예산 가드"]
+    LEGACY --> BUILD
+
+    SIM -->|대상 명확| SERVER
+    SIM -->|속성·대상 해석 필요| LEGACY
+
+    SUPPORT --> SUPPORT_DATA["서버 증상 분류<br/>안내 데이터 선택"]
+    SUPPORT_DATA --> SUPPORT_LLM["설명용 LLM 호출<br/>안내 문장 작성"]
+
+    UI --> SERVER
+
+    SCORE --> SCORE_DATA["서버 점수·병목 계산"]
+    SCORE_DATA --> SCORE_LLM["설명용 LLM 호출<br/>계산 결과 문장화"]
+
+    BUILD --> R["최종 응답"]
+    SERVER --> R
+    SUPPORT_LLM --> R
+    SCORE_LLM --> R
+
+    classDef quoteAgent fill:#fee2e2,stroke:#dc2626,color:#991b1b,stroke-width:3px;
+    classDef llm fill:#ffedd5,stroke:#f97316,color:#9a3412,stroke-width:2px;
+    class QA quoteAgent;
+    class LEGACY,SUPPORT_LLM,SCORE_LLM llm;
+```
+<br>
+
+문제점 분석:  
+
+
+대수술이 필요하다..  
+1차: 기존 1계층(BuildChatService)를 붕 뜨게 한 다음 quoteagent를 붙인다.  
+.. 임시로 1계층의 분기는 비활성화 된다.  
 
